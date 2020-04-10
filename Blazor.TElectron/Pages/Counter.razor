@@ -1,0 +1,158 @@
+﻿@page "/counter"
+@using System.IO
+@using ElectronNET.API
+@using ElectronNET.API.Entities
+
+
+<h1>Seleziona file</h1>
+
+<button class="btn btn-primary" @onclick="choseFolder">Scegli Cartella</button>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Carica: @(pathWork) </button>
+
+<div class="row">
+  <div class="col-md-12">
+               Crea nuovo gruppo: <input type="text"  width="100px" @bind-value="nuova" /> <button class="btn badge-info" @onclick="creaCategoria"> Crea </button>
+            </div>
+    <div class="col-md-2">
+        @if (files != null)
+        {
+            foreach (var f in files)
+            {
+              <button class="btn btn-dark" @onclick="() => { selectImage(f);}">@(f.Name)</button>  <br/>
+            }
+        
+        }
+    </div>
+    <div class="col-md-10">
+        
+          
+            <div class="col-md-12">
+                  <div class="btn-group btn-group-sm">
+                               @if (dirs != null)
+                               {
+                                   foreach (var f in dirs)
+                                   {
+                                       <button class="btn btn-dark" @onclick="() => { moveFolder(f); }">@(f.Name)</button>
+                                       <br/>
+                                   }
+               
+                               }
+                           </div> 
+           
+         
+        </div>
+        <div class="col-md-12">
+              @if (!String.IsNullOrEmpty(imgDataURL))
+                    {
+                        <img src="@(imgDataURL)" style="width: 100%"/>
+                    }
+        </div>
+      
+    </div>
+</div>
+
+
+
+
+     
+
+@code {
+    private int currentCount = 0;
+    string pathWork = "";
+    string imgDataURL;
+    string imgPath;
+    private FileInfo[] files;
+    private string nuova;
+    private DirectoryInfo[] dirs;
+
+    private void selectImage(FileInfo f)
+    {
+        FileStream fileStream = f.OpenRead();
+
+        byte[] byteData =  File.ReadAllBytes(f.FullName);
+        string imreBase64Data = Convert.ToBase64String(byteData);  
+        imgDataURL = string.Format("data:image/png;base64,{0}", imreBase64Data);
+        imgPath = f.FullName;
+    }
+
+    private void creaCategoria()
+    {
+        if (!String.IsNullOrEmpty(nuova))
+        {
+            var nPat=System.IO.Path.Combine(pathWork, nuova);
+            System.IO.Directory.CreateDirectory(nPat);
+            nuova = string.Empty;
+            Carica();
+        }
+    }
+
+    private async void choseFolder()
+    {
+        var mainWindow = Electron.WindowManager.BrowserWindows.First();
+        var options = new OpenDialogOptions
+        {
+            Properties = new OpenDialogProperty[] {
+               
+                OpenDialogProperty.openDirectory
+            }
+        };
+
+        string[] x =  await Electron.Dialog.ShowOpenDialogAsync(mainWindow, options);
+        if (x.Length > 0)
+        {
+            pathWork = x[0];
+            Carica();
+        }
+     
+    }
+    private void moveFolder(DirectoryInfo d)
+    {
+        FileInfo fileInfo = new FileInfo(imgPath);
+        
+        System.IO.File.Move(imgPath, System.IO.Path.Combine(d.FullName,fileInfo.Name));
+        Carica();
+    }
+
+    private void Carica()
+    {
+        var get= new System.IO.DirectoryInfo(pathWork);
+        files= get.GetFiles().Where((f)=>
+        {
+            
+            return f.Extension.ToUpper().Contains("JPG") || f.Extension.ToUpper().Contains("JPEG");
+        }).ToArray();
+
+        dirs = get.GetDirectories();
+
+
+        if (files != null && files.Length > 0)
+        {
+            selectImage(files[0]);            
+        }
+        else
+        {
+            imgDataURL=String.Empty;
+            imgPath=String.Empty;
+    
+        }
+
+        StateHasChanged();
+
+    }
+    
+    
+    private void IncrementCount()
+    {
+        
+     
+     Carica();
+       
+      
+
+       
+        
+        currentCount++;
+       
+    }
+}
